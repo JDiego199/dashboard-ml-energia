@@ -137,9 +137,9 @@ const Predicciones: React.FC<PrediccionesProps> = ({ data }) => {
         prediccion: data.prediction,
         confianza: data.confidence,
         mensaje: 'Predicción realizada exitosamente',
-        intervalo_confianza: data.confidence_interval,
-        datos_historicos: data.historical_data,
-        analisis_sensibilidad: data.sensitivity_analysis
+        // intervalo_confianza: data.confidence_interval,
+        // datos_historicos: data.historical_data,
+        // analisis_sensibilidad: data.sensitivity_analysis
       };
 
       setResultado(resultado);
