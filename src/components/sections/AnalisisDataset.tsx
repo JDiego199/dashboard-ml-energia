@@ -6,42 +6,17 @@ interface AnalisisDatasetProps {
   data: DashboardData;
 }
 
-interface MapaData {
-  type: string;
-  name: string;
-  features: Array<{
-    type: string;
-    properties: {
-      IDSISDAT: number;
-      Arco_Nombr: string;
-      Empresa: string;
-      Regional: string;
-    };
-    geometry: any;
-  }>;
-}
+
 
 const AnalisisDataset: React.FC<AnalisisDatasetProps> = ({ data }) => {
-  const { dataset } = data;
+  const { dataset, mapaData } = data;
   
   // Estados para filtros
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState<number | 'todas'>('todas');
   const [añoSeleccionado, setAñoSeleccionado] = useState<number | 'todos'>('todos');
-  const [mapaData, setMapaData] = useState<MapaData | null>(null);
 
-  // Cargar datos del mapa
-  useEffect(() => {
-    const cargarMapa = async () => {
-      try {
-        const response = await fetch('/data/mapa.json');
-        const data = await response.json();
-        setMapaData(data);
-      } catch (error) {
-        console.error('Error cargando mapa:', error);
-      }
-    };
-    cargarMapa();
-  }, []);
+  // Estado para la variable a mostrar en el mapa
+  const [variableMapa, setVariableMapa] = useState<'consumo' | 'temperatura' | 'precipitacion'>('consumo');
 
   // Obtener opciones para filtros
   const { empresasDisponibles, añosDisponibles } = useMemo(() => {
@@ -158,46 +133,51 @@ const AnalisisDataset: React.FC<AnalisisDatasetProps> = ({ data }) => {
 
   // 5. Mapa de Coropletas
   const datosMapaCoropletas = useMemo(() => {
-    if (!mapaData || !datosFiltrados.length) return null;
+    if (!mapaData || !dataset || dataset.length === 0) return null;
 
-    // Calcular consumo promedio por empresa
-    const consumoPorEmpresa = datosFiltrados.reduce((acc, row) => {
-      if (!acc[row.IdEmpresa]) {
-        acc[row.IdEmpresa] = [];
-      }
-      acc[row.IdEmpresa].push(row['Energía Facturada (MWh)']);
+    // Agrupar y calcular promedio por empresa para la variable seleccionada
+    const variableKey =
+      variableMapa === 'consumo' ? 'Energía Facturada (MWh)'
+      : variableMapa === 'temperatura' ? 'temperatura'
+      : 'precipitacion';
+
+    // Agrupar valores por IdEmpresa
+    const valoresPorEmpresa = dataset.reduce((acc, row) => {
+      if (!acc[row.IdEmpresa]) acc[row.IdEmpresa] = [];
+      acc[row.IdEmpresa].push(row[variableKey] ?? 0);
       return acc;
     }, {} as Record<number, number[]>);
 
-    const promedios = Object.entries(consumoPorEmpresa).reduce((acc, [empresa, consumos]) => {
-      acc[parseInt(empresa)] = consumos.reduce((a, b) => a + b, 0) / consumos.length;
+    // Calcular promedio por empresa
+    const promedios = Object.entries(valoresPorEmpresa).reduce((acc, [empresa, valores]) => {
+      acc[parseInt(empresa)] = valores.reduce((a, b) => a + b, 0) / valores.length;
       return acc;
     }, {} as Record<number, number>);
 
-    // Preparar datos para el mapa
+    // Preparar features para el mapa
     const features = mapaData.features.map(feature => {
       const idEmpresa = feature.properties.IDSISDAT;
-      const consumo = promedios[idEmpresa] || 0;
+      const valor = promedios[idEmpresa] || 0;
       return {
         ...feature,
         properties: {
           ...feature.properties,
-          consumo: consumo
+          valorMapa: valor
         }
       };
     });
 
     // Calcular min y max para la escala de colores
-    const consumos = Object.values(promedios);
-    const minConsumo = Math.min(...consumos);
-    const maxConsumo = Math.max(...consumos);
+    const valores = Object.values(promedios);
+    const minValor = Math.min(...valores);
+    const maxValor = Math.max(...valores);
 
     return {
       features,
-      minConsumo,
-      maxConsumo
+      minValor,
+      maxValor
     };
-  }, [mapaData, datosFiltrados]);
+  }, [mapaData, dataset, variableMapa]);
 
   const MetricCard = ({ title, value, subtitle, icon, color }: {
     title: string;
@@ -413,45 +393,74 @@ const AnalisisDataset: React.FC<AnalisisDatasetProps> = ({ data }) => {
 
       {/* 5. Mapa de Coropletas */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Energía Facturada (MWh) por Área</h3>
-        {datosMapaCoropletas && (
-          <Plot
-            data={[
-              {
-                type: 'choroplethmap',
-                locationmode: 'geojson-id',
-                geojson: mapaData,
-                locations: datosMapaCoropletas.features.map(f => f.properties.IDSISDAT),
-                z: datosMapaCoropletas.features.map(f => f.properties.consumo),
-                text: datosMapaCoropletas.features.map(f => 
-                  `${f.properties.Arco_Nombr}<br>Consumo: ${f.properties.consumo.toFixed(0)} MWh`
-                ),
-                hovertemplate: '%{text}<extra></extra>',
-                colorscale: [
-                  [0, '#1E3A8A'],      // Azul oscuro
-                  [0.25, '#3B82F6'],   // Azul
-                  [0.5, '#60A5FA'],    // Azul claro
-                  [0.75, '#FCA5A5'],   // Rosa claro
-                  [1, '#DC2626']       // Rojo
-                ],
-                colorbar: {
-                  title: 'MWh',
-                  titleside: 'right'
-                }
-              }
-            ]}
-            layout={{
-              geo: {
-                fitbounds: 'locations',
-                visible: false
-              },
-              margin: { t: 20, r: 20, l: 20, b: 20 },
-              height: 500
-            }}
-            config={{ displayModeBar: false }}
-            style={{ width: '100%' }}
-          />
-        )}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+          <h3 className="text-lg font-semibold text-gray-800">
+            {variableMapa === 'consumo' ? 'Energía Facturada (MWh)' : variableMapa === 'temperatura' ? 'Temperatura (°C)' : 'Precipitación (mm)'} por Área
+          </h3>
+          <select
+            value={variableMapa}
+            onChange={e => setVariableMapa(e.target.value as any)}
+            className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="consumo">Consumo (MWh)</option>
+            <option value="temperatura">Temperatura (°C)</option>
+            <option value="precipitacion">Precipitación (mm)</option>
+          </select>
+        </div>
+       {datosMapaCoropletas && (
+  <Plot
+    data={[
+      {
+        type: 'choroplethmapbox',
+        geojson: mapaData,
+        locations: datosMapaCoropletas.features.map(f => f.properties.IDSISDAT),
+        z: datosMapaCoropletas.features.map(f => f.properties.valorMapa),
+        text: datosMapaCoropletas.features.map(f =>
+          `${f.properties.Arco_Nombr}<br>${variableMapa === 'consumo' ? 'Consumo' : variableMapa === 'temperatura' ? 'Temperatura' : 'Precipitación'}: ${f.properties.valorMapa?.toFixed(1)}`
+        ),
+        hovertemplate: '%{text}<extra></extra>',
+        colorscale: [
+          [0, '#1E3A8A'],
+          [0.25, '#3B82F6'],
+          [0.5, '#60A5FA'],
+          [0.75, '#FCA5A5'],
+          [1, '#DC2626']
+        ],
+        colorbar: {
+          title: variableMapa === 'consumo' ? 'MWh' : variableMapa === 'temperatura' ? '°C' : 'mm',
+          titleside: 'right',
+          thickness: 10,
+          len: 0.7,
+          x: 1.02,
+          xanchor: 'left'
+        },
+        featureidkey: 'properties.IDSISDAT',
+        marker: {
+          opacity: 0.8,
+          line: {
+            color: 'white',
+            width: 3
+          }
+        }
+      }
+    ]}
+    layout={{
+      mapbox: {
+        style: "white-bg",
+        center: { lat: -1.5, lon: -78.5 },
+        zoom: 5.5,
+      },
+      margin: { t: 20, r: 20, l: 20, b: 20 },
+      height: 500,
+    }}
+    config={{
+      displayModeBar: true,
+      responsive: true,
+      
+    }}
+    style={{ width: '100%' }}
+  />
+)}
       </div>
     </div>
   );

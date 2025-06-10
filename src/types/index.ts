@@ -89,6 +89,7 @@ export interface DashboardData {
   resultadosPrediccion: ResultadoPrediccion[];
   metricasEmpresa: MetricaEmpresa[];
   datosEntrenamientoPrueba: DatosEntrenamientoPrueba;
+  mapaData: MapaData;
 }
 
 // Tipo para la predicción nueva
@@ -124,4 +125,19 @@ export interface EstadisticasDataset {
   rangoTemperatura: { min: number; max: number };
   rangoPrecipitacion: { min: number; max: number };
   rangoPIB: { min: number; max: number };
+}
+
+export interface MapaData {
+  type: string;
+  name: string;
+  features: Array<{
+    type: string;
+    properties: {
+      IDSISDAT: number;
+      Arco_Nombr: string;
+      Empresa: string;
+      Regional: string;
+    };
+    geometry: any;
+  }>;
 }

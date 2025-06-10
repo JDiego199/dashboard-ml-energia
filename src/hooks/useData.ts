@@ -6,7 +6,9 @@ import {
   MetricasModelo, 
   ResultadoPrediccion, 
   MetricaEmpresa,
-  DatosEntrenamientoPrueba 
+  DatosEntrenamientoPrueba,
+  MapaData
+  
 } from '../types';
 
 export const useData = () => {
@@ -39,13 +41,15 @@ export const useData = () => {
         metricasRes, 
         resultadosRes, 
         metricasEmpresaRes,
-        datosTrainTestRes
+        datosTrainTestRes,
+        geojsonMapaRes,
       ] = await Promise.all([
         fetch('/data/df_dataset_unidos3.csv'),
         fetch('/data/metricas_modelo_20250530_134954.json'),
         fetch('/data/resultados_prediccion_energia.csv'),
         fetch('/data/metricas_evaluacion_por_empresa.csv'),
-        fetch('/data/data_train_test_20250601_175314.json')
+        fetch('/data/data_train_test_20250601_175314.json'),
+        fetch('/data/mapa.json'),
       ]);
 
       if (!datasetRes.ok || !metricasRes.ok || !resultadosRes.ok || !metricasEmpresaRes.ok || !datosTrainTestRes.ok) {
@@ -60,9 +64,10 @@ export const useData = () => {
       ]);
 
       // Parsear archivos JSON
-      const [metricasJson, datosTrainTestJson] = await Promise.all([
+      const [metricasJson, datosTrainTestJson, geojsonMapaJson] = await Promise.all([
         metricasRes.json(),
-        datosTrainTestRes.json()
+        datosTrainTestRes.json(),
+        geojsonMapaRes.json()
       ]);
 
       const dataset = parseCSV<DatasetRow>(datasetText);
@@ -75,6 +80,7 @@ export const useData = () => {
         metricasEmpresa: metricasEmpresa.length,
         metricas: !!metricasJson,
         datosTrainTest: Object.keys(datosTrainTestJson).length
+
       });
 
       setData({
@@ -82,7 +88,8 @@ export const useData = () => {
         metricas: metricasJson as MetricasModelo,
         resultadosPrediccion,
         metricasEmpresa,
-        datosEntrenamientoPrueba: datosTrainTestJson as DatosEntrenamientoPrueba
+        datosEntrenamientoPrueba: datosTrainTestJson as DatosEntrenamientoPrueba,
+        mapaData: geojsonMapaJson as MapaData,
       });
     } catch (err) {
       console.error('Error al cargar datos:', err);
