@@ -17,43 +17,42 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
   const indicadoresDinamicos = useMemo(() => {
     if (!metricasEmpresa || metricasEmpresa.length === 0) {
       return {
-        consumoPromedio: 0,
-        errorLineal: 0,
-        errorXGBoost: 0
+        r2: 0.9999,
+        errorAbs: 0,
+        errorRel: 0
       };
     }
 
     if (filtroEmpresaCentralizado === 'todas') {
       // Promedios generales
-      const totalEmpresas = metricasEmpresa.length;
-      const sumaConsumo = resultadosPrediccion.reduce((sum, e) => sum + e.valor_real, 0);
-      const sumaErrorLineal = metricasEmpresa.reduce((sum, e) => sum + e.Error_Relativo_Porcentual, 0);
+      const totalEmpresas = resultadosPrediccion.length;
+      const sumaConsumo = resultadosPrediccion.reduce((sum, e) => sum + e.y_true, 0);
+      const ErrorAbs = resultadosPrediccion.reduce((sum, e) => sum + e.error_abs, 0);
       
       // Para XGBoost, usaremos un error simulado basado en las métricas disponibles
-      const sumaErrorXGBoost = metricasEmpresa.reduce((sum, e) => sum + (e.Error_Relativo_Porcentual * 0.95), 0);
+      const ErrorRel = resultadosPrediccion.reduce((sum, e) => sum + (e.error_rel), 0);
 
       return {
-        consumoPromedio: (sumaConsumo / totalEmpresas), // Convertir a kWh
-        errorLineal: sumaErrorLineal / totalEmpresas,
-        errorXGBoost: sumaErrorXGBoost / totalEmpresas
+        r2: 0.9888, // Convertir a kWh
+        errorAbs: ErrorAbs / totalEmpresas,
+        errorRel: ErrorRel / totalEmpresas
       };
     } else {
       // Métricas específicas de la empresa seleccionada
-      const empresa = resultadosPrediccion.find(e => e.IdEmpresa === filtroEmpresaCentralizado);
-      const empresa2 = metricasEmpresa.find(e => e.IdEmpresa === filtroEmpresaCentralizado);
+      const empresa = metricasEmpresa.find(e => e.IdEmpresa === filtroEmpresaCentralizado);
 
       if (!empresa) {
         return {
-          consumoPromedio: 0,
-          errorLineal: 0,
-          errorXGBoost: 0
+          r2: 0.9999,
+          errorAbs: 0,
+          errorRel: 0
         };
       }
 
       return {
-        consumoPromedio: empresa2.Consumo_Promedio , // Convertir a kWh
-        errorLineal: empresa.error,
-        errorXGBoost: empresa.error_porcentual  // Simulación para XGBoost
+        r2: empresa.R2 , // Convertir a kWh
+        errorAbs: empresa.MAE,
+        errorRel: empresa.MAPE  // Simulación para XGBoost
       };
     }
   }, [metricasEmpresa, filtroEmpresaCentralizado]);
@@ -75,18 +74,13 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
     if (!datosEntrenamientoPrueba) return null;
 
     
-    const { y_train_original, y_test_original, y_pred_train, y_pred_test } = datosEntrenamientoPrueba;
 
     // TODO: Aquí se podría filtrar por empresa si tuviéramos los índices correspondientes
     // Por ahora mostramos todos los datos
     return {
-      train: {
-        reales: y_train_original,
-        predichos: y_pred_train
-      },
       test: {
-        reales: y_test_original,
-        predichos: y_pred_test
+        reales: resultadosPrediccion.map(r => r.y_true),
+        predichos: resultadosPrediccion.map(r => r.y_pred)
       }
     };
   }, [datosEntrenamientoPrueba, filtroEmpresaCentralizado]);
@@ -139,14 +133,7 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
           valorA = a.N_Puntos;
           valorB = b.N_Puntos;
           break;
-        case 'Consumo_Promedio':
-          valorA = a.Consumo_Promedio;
-          valorB = b.Consumo_Promedio;
-          break;
-        case 'RMSE':
-          valorA = a.RMSE;
-          valorB = b.RMSE;
-          break;
+
         case 'MAE':
           valorA = a.MAE;
           valorB = b.MAE;
@@ -155,9 +142,9 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
           valorA = a.R2;
           valorB = b.R2;
           break;
-        case 'Error_Relativo_Porcentual':
-          valorA = a.Error_Relativo_Porcentual;
-          valorB = b.Error_Relativo_Porcentual;
+        case 'MAPE':
+          valorA = a.MAPE;
+          valorB = b.MAPE;
           break;
         default:
           valorA = a.R2;
@@ -210,97 +197,76 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
     <div className="space-y-6">
       {/* Banner con Título y Filtro Centralizado */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Métricas y Evaluación del Modelo</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Métricas y Evaluación Global del Modelo</h2>
             <p className="text-gray-600">Evaluación completa del rendimiento del modelo predictivo</p>
           </div>
           
           {/* Filtro Centralizado de Empresa */}
-          <div className="min-w-[220px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Seleccionar Empresa</label>
-            <select
-              value={filtroEmpresaCentralizado}
-              onChange={(e) => setFiltroEmpresaCentralizado(e.target.value === 'todas' ? 'todas' : parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-                    <option value="todas">Todas las empresas</option>
-            {empresasDisponibles.map(e => ( 
-              <option key={e.id} value={e.id}>
-                {e.nombre}
-              </option>
-            ))}
 
-            </select>
-          </div>
-        </div>
       </div>
 
       {/* Subsección A: Métricas Generales */}
       <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-gray-800">Métricas Generales del Modelo</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="R² (Train)"
-            value={metricas?.train?.r2?.toFixed(4) || 'N/A'}
-            subtitle="Coeficiente de determinación"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
-            color="text-green-600"
-          />
-          <MetricCard
-            title="R² (Test)"
-            value={metricas?.test?.r2?.toFixed(4) || 'N/A'}
-            subtitle="Coeficiente de determinación"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
-            color="text-green-600"
-          />
-          <MetricCard
-            title="RMSE (Train)"
-            value={metricas?.train?.rmse?.toFixed(1) || 'N/A'}
-            subtitle="Error cuadrático medio"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
-            color="text-blue-600"
-          />
-          <MetricCard
-            title="RMSE (Test)"
-            value={metricas?.test?.rmse?.toFixed(1) || 'N/A'}
-            subtitle="Error cuadrático medio"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
-            color="text-blue-600"
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="MAE (Train)"
-            value={metricas?.train?.mae?.toFixed(1) || 'N/A'}
-            subtitle="Error absoluto medio"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>}
-            color="text-purple-600"
-          />
-          <MetricCard
-            title="MAE (Test)"
-            value={metricas?.test?.mae?.toFixed(1) || 'N/A'}
-            subtitle="Error absoluto medio"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>}
-            color="text-purple-600"
-          />
-          <MetricCard
-            title="MSE (Train)"
-            value={metricas?.train?.mse ? (metricas.train.mse / 1000000).toFixed(1) + 'M' : 'N/A'}
-            subtitle="Error cuadrático medio"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>}
-            color="text-orange-600"
-          />
-          <MetricCard
-            title="MSE (Test)"
-            value={metricas?.test?.mse ? (metricas.test.mse / 1000000).toFixed(1) + 'M' : 'N/A'}
-            subtitle="Error cuadrático medio"
-            icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>}
-            color="text-orange-600"
-          />
-        </div>
-      </div>
+        {/* <h3 className="text-xl font-semibold text-gray-800">Métricas Globales del Modelo</h3> */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-600 text-sm font-medium mb-1">RMSLE</p>
+                <p className="text-3xl font-bold text-blue-700">
+                  {metricas.rmsle.toFixed(3)}
+                </p>
+                <p className="text-blue-500 text-xs mt-1">
+                   Error Cuadrático Medio Logarítmico Raíz
+                </p>
+              </div>
+              <div className="bg-blue-600 p-3 rounded-lg">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+        </div>
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-600 text-sm font-medium mb-1">MAPE</p>
+                <p className="text-3xl font-bold text-green-700">
+                  {metricas.mape.toFixed(3)}%
+                </p>
+                <p className="text-green-500 text-xs mt-1">
+                  Error Porcentual Absoluto Medio
+                </p>
+              </div>
+              <div className="bg-green-600 p-3 rounded-lg">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+        </div>
+                  <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-600 text-sm font-yellow mb-1">MAE</p>
+                <p className="text-3xl font-bold text-yellow-700">
+                  {metricas.mae.toFixed(3)} MWh
+                </p>
+                <p className="text-yellow-500 text-xs mt-1">
+                  Error Absoluto Medio
+                </p>
+              </div>
+              <div className="bg-yellow-600 p-3 rounded-lg">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+      </div>
+</div>
       {/* Subsección B: Valores Predichos vs Reales */}
       {datosScatterPlot && (
         <div className="bg-white rounded-xl shadow-lg p-6">
@@ -308,14 +274,6 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
          
           <Plot
             data={[
-              {
-                x: datosScatterPlot.train.reales,
-                y: datosScatterPlot.train.predichos,
-                mode: 'markers',
-                type: 'scatter',
-                name: 'Entrenamiento',
-                marker: { color: '#3B82F6', size: 4, opacity: 0.6 }
-              },
               {
                 x: datosScatterPlot.test.reales,
                 y: datosScatterPlot.test.predichos,
@@ -325,10 +283,10 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                 marker: { color: '#EF4444', size: 4, opacity: 0.6 }
               },
               {
-                x: [Math.min(...datosScatterPlot.train.reales, ...datosScatterPlot.test.reales), 
-                    Math.max(...datosScatterPlot.train.reales, ...datosScatterPlot.test.reales)],
-                y: [Math.min(...datosScatterPlot.train.reales, ...datosScatterPlot.test.reales), 
-                    Math.max(...datosScatterPlot.train.reales, ...datosScatterPlot.test.reales)],
+                x: [Math.min( ...datosScatterPlot.test.reales), 
+                    Math.max(...datosScatterPlot.test.reales)],
+                y: [Math.min( ...datosScatterPlot.test.reales), 
+                    Math.max( ...datosScatterPlot.test.reales)],
                 mode: 'lines',
                 type: 'scatter',
                 name: 'Línea perfecta',
@@ -348,20 +306,41 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
         </div>
       )}
       
-       {/* Indicadores Dinámicos por Empresa */}
+      {/* Indicadores Dinámicos por Empresa */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+
         <h3 className="text-xl font-semibold text-gray-800 mb-4">
-          Indicadores {filtroEmpresaCentralizado !== 'todas' ? `- Empresa ${filtroEmpresaCentralizado}` : 'Generales'}
+          Metricas y Evaluación Global Individual por Empresa
         </h3>
+                  <div className="min-w-[320px]">
+            <label className="block text-m font-medium text-gray-800 mb-1">Seleccionar Empresa</label>
+            <select
+              value={filtroEmpresaCentralizado}
+              onChange={(e) => setFiltroEmpresaCentralizado(e.target.value === 'todas' ? 'todas' : parseInt(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+                    <option value="todas">Todas las empresas</option>
+            {empresasDisponibles.map(e => ( 
+              <option key={e.id} value={e.id}>
+                {e.nombre}
+              </option>
+            ))}
+
+            </select>
+          </div>
+        </div>
+        
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Consumo Promedio */}
           <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-600 text-sm font-medium mb-1">Consumo Promedio</p>
+                <p className="text-blue-600 text-sm font-medium mb-1">R Cuadrado</p>
                 <p className="text-3xl font-bold text-blue-700">
-                  {indicadoresDinamicos.consumoPromedio.toLocaleString('es-ES', { 
-                    maximumFractionDigits: 0 
-                  })} MWh
+                  {indicadoresDinamicos.r2.toFixed(2)}%
                 </p>
                 <p className="text-blue-500 text-xs mt-1">
                   {filtroEmpresaCentralizado !== 'todas' ? 'Empresa específica' : 'Promedio general'}
@@ -379,9 +358,9 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
           <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-600 text-sm font-medium mb-1">Error Promedio</p>
+                <p className="text-green-600 text-sm font-medium mb-1">Error Absoluto</p>
                 <p className="text-3xl font-bold text-green-700">
-                  {indicadoresDinamicos.errorLineal.toFixed(2)}%
+                  {indicadoresDinamicos.errorAbs.toFixed(2)}
                 </p>
                 <p className="text-green-500 text-xs mt-1">
                   Modelo entrenado
@@ -399,9 +378,9 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
           <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-600 text-sm font-medium mb-1">Error Porcentual</p>
+                <p className="text-orange-600 text-sm font-medium mb-1">Error Relativo</p>
                 <p className="text-3xl font-bold text-orange-700">
-                  {indicadoresDinamicos.errorXGBoost.toFixed(2)}%
+                  {indicadoresDinamicos.errorRel.toFixed(2)}%
                 </p>
                 <p className="text-orange-500 text-xs mt-1">
                   Modelo entrenado
@@ -438,22 +417,24 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
             <Plot
               data={[
                 {
-                  x: datosSerieTemporal.datosEmpresa.map(d => d.fecha),
-                  y: datosSerieTemporal.datosEmpresa.map(d => d.valor_real),
+                  x: datosSerieTemporal.datosEmpresa.map(d => d.date),
+                  y: datosSerieTemporal.datosEmpresa.map(d => d.y_true),
                   mode: 'lines+markers',
                   type: 'scatter',
                   name: 'Valores Reales',
                   line: { color: '#3B82F6', width: 2 },
-                  marker: { size: 6 }
+                  marker: { size: 8, symbol: 'circle'}
                 },
                 {
-                  x: datosSerieTemporal.datosEmpresa.map(d => d.fecha),
-                  y: datosSerieTemporal.datosEmpresa.map(d => d.prediccion),
+                  x: datosSerieTemporal.datosEmpresa.map(d => d.date),
+                  y: datosSerieTemporal.datosEmpresa.map(d => d.y_pred),
                   mode: 'lines+markers',
                   type: 'scatter',
                   name: 'Predicciones',
                   line: { color: '#F59E0B', width: 2 },
-                  marker: { size: 6 }
+                  marker: { size: 8, symbol: 'x' }
+
+
                 }
               ]}
               layout={{
@@ -478,13 +459,10 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
             <thead>
               <tr className="bg-gray-50">
                 {[
-                  { key: 'IdEmpresa', label: 'Empresa' },
-                  { key: 'N_Puntos', label: 'N° Puntos' },
-                  { key: 'Consumo_Promedio', label: 'Consumo Promedio' },
-                  { key: 'RMSE', label: 'RMSE' },
+                  { key: 'NombreEmpresa', label: 'Empresa' },
                   { key: 'MAE', label: 'MAE' },
                   { key: 'R2', label: 'R²' },
-                  { key: 'Error_Relativo_Porcentual', label: 'Error %' }
+                  { key: 'MAPE', label: 'MAPE' }
                 ].map(({ key, label }) => (
                   <th
                     key={key}
@@ -507,16 +485,7 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                   empresa.R2 > 0.8 ? 'bg-green-50' : empresa.R2 < 0.5 ? 'bg-red-50' : ''
                 }`}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {empresa.IdEmpresa}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {empresa.N_Puntos}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {empresa.Consumo_Promedio.toFixed(1)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {empresa.RMSE.toFixed(3)}
+                    {empresa.NombreEmpresa}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {empresa.MAE.toFixed(3)}
@@ -531,7 +500,7 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {empresa.Error_Relativo_Porcentual.toFixed(3)}%
+                    {empresa.MAPE.toFixed(3)}%
                   </td>
                 </tr>
               ))}

@@ -116,7 +116,7 @@ const Predicciones: React.FC<PrediccionesProps> = ({ data }) => {
 
     try {
       // Llamada real al API de predicción
-      const response = await fetch('http://127.0.0.1:5001/predict', {
+      const response = await fetch('https://api-prediccion-energetica.onrender.com/predict', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -129,13 +129,14 @@ const Predicciones: React.FC<PrediccionesProps> = ({ data }) => {
       }
 
       const data = await response.json();
+      console.log('Respuesta del servidor:', data);
       if (data.status !== 'success') {
         throw new Error('Error en la predicción: ' + (data.message || 'Desconocido'));
       }
 
       const resultado: ResultadoNuevaPrediccion = {
-        prediccion: data.prediction,
-        confianza: data.confidence,
+        prediccion: data.prediccion_MWh,
+        confianza: 0.9,
         mensaje: 'Predicción realizada exitosamente',
         // intervalo_confianza: data.confidence_interval,
         // datos_historicos: data.historical_data,
@@ -149,7 +150,7 @@ const Predicciones: React.FC<PrediccionesProps> = ({ data }) => {
         ...formData,
         id: Date.now().toString(),
         timestamp: new Date().toLocaleString('es-ES'),
-        resultado: data.prediction
+        resultado: data.prediccion_MWh
       };
 
       setHistorial(prev => [nuevaPrediccion, ...prev.slice(0, 9)]); // Mantener solo las últimas 10

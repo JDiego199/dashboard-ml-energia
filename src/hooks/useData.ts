@@ -44,10 +44,10 @@ export const useData = () => {
         datosTrainTestRes,
         geojsonMapaRes,
       ] = await Promise.all([
-        fetch('/data/df_dataset_unidos3.csv'),
-        fetch('/data/metricas_modelo_20250530_134954.json'),
-        fetch('/data/resultados_prediccion_energia.csv'),
-        fetch('/data/metricas_evaluacion_por_empresa.csv'),
+        fetch('/data/df_dataset_unidos5.csv'),
+        fetch('/data/metricas_modelo.json'),
+        fetch('/data/resultado_modelo.csv'),
+        fetch('/data/metrics_by_company.csv'),
         fetch('/data/data_train_test_20250601_175314.json'),
         fetch('/data/mapa.json'),
       ]);

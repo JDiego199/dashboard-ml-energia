@@ -13,31 +13,23 @@ export interface DatasetRow {
 
 // Tipos para métricas del modelo
 export interface MetricasModelo {
-  train: {
-    mse: number;
+
     rmse: number;
     mae: number;
-    r2: number;
-  };
-  test: {
-    mse: number;
-    rmse: number;
-    mae: number;
-    r2: number;
-  };
+  r2: number;
+  mape: number;
+  rmsle: number;
 }
 
 // Tipos para resultados de predicción
 export interface ResultadoPrediccion {
-  fecha: string;
-  año: number;
-  mes: number;
+  date: string;
   IdEmpresa: number;
-  valor_real: number;
-  prediccion: number;
-  error: number;
+  NombreEmpresa: string;
+  y_true: number;
+  y_pred: number;
   error_abs: number;
-  error_porcentual: number;
+  error_rel: number;
 }
 
 // Tipos para métricas por empresa
@@ -45,11 +37,11 @@ export interface MetricaEmpresa {
   IdEmpresa: number;
   NombreEmpresa: string;
   N_Puntos: number;
-  Consumo_Promedio: number;
-  RMSE: number;
+  //Consumo_Promedio: number;
+  //RMSE: number;
   MAE: number;
+  MAPE: number;
   R2: number;
-  Error_Relativo_Porcentual: number;
 }
 
 // Tipos para datos de entrenamiento y prueba
