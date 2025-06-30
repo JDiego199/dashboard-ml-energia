@@ -37,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) => 
   ];
 
   return (
-    <div className="fixed left-6 top-24 h-[calc(100vh-7rem)] w-64 bg-white shadow-2xl border border-gray-200 rounded-2xl z-40" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+    <div className="fixed left-6 top-24 h-[calc(100vh-7rem)] w-70 bg-white shadow-2xl border border-gray-200 rounded-2xl z-40" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
       <div className="p-6">
         <nav className="space-y-2">
           {sections.map((section) => (

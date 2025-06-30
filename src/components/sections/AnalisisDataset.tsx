@@ -449,9 +449,13 @@ const AnalisisDataset: React.FC<AnalisisDatasetProps> = ({ data }) => {
         style: "white-bg",
         center: { lat: -1.5, lon: -78.5 },
         zoom: 5.5,
+        
       },
       margin: { t: 20, r: 20, l: 20, b: 20 },
       height: 500,
+                     modebar: {
+    orientation: 'v'
+  }
     }}
     config={{
       displayModeBar: true,

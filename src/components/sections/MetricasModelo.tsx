@@ -280,7 +280,7 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                 mode: 'markers',
                 type: 'scatter',
                 name: 'Prueba',
-                marker: { color: '#EF4444', size: 4, opacity: 0.6 }
+                marker: { color: '#F59E0B', size: 4, opacity: 0.6 }
               },
               {
                 x: [Math.min( ...datosScatterPlot.test.reales), 
@@ -290,7 +290,7 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                 mode: 'lines',
                 type: 'scatter',
                 name: 'Línea perfecta',
-                line: { color: '#10B981', dash: 'dash', width: 2 }
+                line: { color: '#3B82F6', dash: 'dash', width: 2 }
               }
             ]}
             layout={{
@@ -298,7 +298,10 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
               yaxis: { title: 'Valores Predichos (MWh)' },
               margin: { t: 20, r: 20, l: 60, b: 60 },
               height: 500,
-              hovermode: 'closest'
+              hovermode: 'closest',
+                modebar: {
+    orientation: 'v'
+  }
             }}
             config={{ displayModeBar: true }}
             style={{ width: '100%' }}
@@ -422,7 +425,7 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                   mode: 'lines+markers',
                   type: 'scatter',
                   name: 'Valores Reales',
-                  line: { color: '#3B82F6', width: 2 },
+                  line: { color: '#3B82F6', width: 3 },
                   marker: { size: 8, symbol: 'circle'}
                 },
                 {
@@ -431,7 +434,7 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                   mode: 'lines+markers',
                   type: 'scatter',
                   name: 'Predicciones',
-                  line: { color: '#F59E0B', width: 2 },
+                  line: { color: '#F59E0B', width: 3, dash: 'dashdot' },
                   marker: { size: 8, symbol: 'x' }
 
 
@@ -442,7 +445,10 @@ const MetricasModelo: React.FC<MetricasModeloProps> = ({ data }) => {
                 yaxis: { title: 'Consumo (MWh)' },
                 margin: { t: 20, r: 20, l: 60, b: 60 },
                 height: 400,
-                hovermode: 'x unified'
+                hovermode: 'x unified',
+                               modebar: {
+    orientation: 'v'
+  }
               }}
               config={{ displayModeBar: true }}
               style={{ width: '100%' }}
